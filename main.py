@@ -51,7 +51,7 @@ def create_pdf_with_string(text, pdfs):
     pdfs.append(filename)
 
 
-def gen_pdf(filename, filepath, pdfs, style='monokai'):
+def gen_pdf(filename, filepath, pdfs, style='dracula'):
     try:
         with open(filepath, 'rb') as file:
             code = file.read()
