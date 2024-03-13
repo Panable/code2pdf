@@ -22,7 +22,7 @@ from PyPDF2 import PdfFileMerger
 
 
 def create_pdf_with_string(text, pdfs):
-    filename = f"res/{len(pdfs)}.pdf"
+    filename = f"res/L_{len(pdfs)}.pdf"
 
     font_size = 36
 
@@ -51,9 +51,9 @@ def create_pdf_with_string(text, pdfs):
     pdfs.append(filename)
 
 
-def gen_pdf(filename, filepath, pdfs, style='dracula'):
+def gen_pdf(filename, filepath, pdfs, style="monokai"):
     try:
-        with open(filepath, 'rb') as file:
+        with open(filepath, "rb") as file:
             code = file.read()
 
         # Guess the lexer for the given file name
@@ -63,14 +63,14 @@ def gen_pdf(filename, filepath, pdfs, style='dracula'):
         highlighted_code = highlight(code, lexer, HtmlFormatter(style=style))
 
         # Get CSS styles for the highlighted code
-        css_styles = HtmlFormatter(style=style).get_style_defs('.highlight')
+        css_styles = HtmlFormatter(style=style).get_style_defs(".highlight")
 
         opts = {
-            'page-size': 'A4',
-            'margin-top': '0mm',
-            'margin-right': '0mm',
-            'margin-bottom': '0mm',
-            'margin-left': '0mm',
+            "page-size": "A4",
+            "margin-top": "0mm",
+            "margin-right": "0mm",
+            "margin-bottom": "0mm",
+            "margin-left": "0mm",
         }
 
         # Generate HTML content
@@ -99,26 +99,27 @@ async def gen_webpages(html_files, servepath, pdfs):
     root_url = "http://0.0.0.0:8000/"
     for file in html_files:
 
-        filename = f"res/{len(pdfs)}.pdf"
-        relative_server_url = str(file).replace(str(servepath), '')
+        filename = f"res/P_{len(pdfs)}.pdf"
+        relative_server_url = str(file).replace(str(servepath), "")
         url = root_url + relative_server_url
 
+        await page.setCacheEnabled(False)
         await page.goto(url)
 
         # Add a delay of 5 seconds (adjust as needed)
-        await delay(4)
+        await delay(2000)
 
-        await page.pdf({'path': filename, 'format': 'A4'})
+        await page.pdf({"path": filename, "format": "A4"})
 
         pdfs.append(filename)
 
         await browser.close()
 
 
-async def append_subdir(dirName, path, pdfs, servepath=''):
-    html_files = list(path.rglob('*' + '.html'))
-    css_files = list(path.rglob('*' + '.css'))
-    js_files = list(path.rglob('*' + '.js'))
+async def append_subdir(dirName, path, pdfs, servepath=""):
+    html_files = list(path.rglob("*" + ".html"))
+    css_files = list(path.rglob("*" + ".css"))
+    js_files = list(path.rglob("*" + ".js"))
 
     create_pdf_with_string(dirName, pdfs)
     for file in html_files:
@@ -133,28 +134,35 @@ async def append_subdir(dirName, path, pdfs, servepath=''):
     print("page generated.")
 
 
-async def highlight_code_to_pdf(rootdir, style='default'):
+async def highlight_code_to_pdf(rootdir, style="default"):
+
 
     pdfs = []
 
-    if rootdir.startswith('~'):
+    if rootdir.startswith("~"):
         rootdir = str(pathlib.Path.home()) + rootdir[1:]
 
     children_dirs = list(pathlib.Path(rootdir).iterdir())
 
     children_dirs = sorted(children_dirs)
-    children_dirs = [dir for dir in children_dirs if dir.is_dir(
-    ) and not dir.name.endswith('.git')]
+    children_dirs = [
+        dir for dir in children_dirs if dir.is_dir() and not dir.name.endswith(".git")
+    ]
 
     for child in children_dirs:
         await append_subdir(child.name, child, pdfs, rootdir)
 
-    merge(pdfs)
+    just_pages = []
+    for page in pdfs:
+        if "L_" in page or "P_" in page:
+            just_pages.append(page)
+
+    merge(pdfs, "full.pdf")
+    merge(just_pages, "just_webpages.pdf")
 
 
-def merge(pdfs):
+def merge(pdfs, output_path):
     print(pdfs)
-    output_path = 'output.pdf'
     print("merging")
     merger = PdfFileMerger()
 
@@ -170,20 +178,22 @@ def merge(pdfs):
 
 class CORSRequestHandler(SimpleHTTPRequestHandler):
     def end_headers(self):
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET')
-        self.send_header('Access-Control-Allow-Headers',
-                         'X-Requested-With, Content-Type')
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET")
+        self.send_header(
+            "Access-Control-Allow-Headers", "X-Requested-With, Content-Type"
+        )
         SimpleHTTPRequestHandler.end_headers(self)
 
 
 def get_server(port, directory):
-    server_address = ('', port)
+    server_address = ("", port)
 
     handler = lambda *args, **kwargs: CORSRequestHandler(
-        *args, directory=directory, **kwargs)
+        *args, directory=directory, **kwargs
+    )
 
-    print(f'Starting server on port {port}, serving directory {directory}...')
+    print(f"Starting server on port {port}, serving directory {directory}...")
     httpd = SignalingHTTPServer(server_address, handler)
     return httpd
 
@@ -193,7 +203,7 @@ def run_server(server):
 
 
 def translate_path(self, path):
-    if path.startswith('~'):
+    if path.startswith("~"):
         path = str(pathlib.Path.home()) + path[1:]
 
     # Get the absolute path of the directory to serve
@@ -203,7 +213,7 @@ def translate_path(self, path):
     if path.is_relative_to(root):
         return str(path)
     else:
-        return str(root / '404.html')
+        return str(root / "404.html")
 
 
 class SignalingHTTPServer(HTTPServer):
@@ -236,7 +246,8 @@ if __name__ == "__main__":
     server.ready_event.wait()
 
     asyncio.get_event_loop().run_until_complete(
-        highlight_code_to_pdf(filename, 'monokai'))
+        highlight_code_to_pdf(filename, "monokai")
+    )
 
     # Shutdown the server
 
